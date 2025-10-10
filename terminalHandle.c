@@ -7,6 +7,8 @@
 #include <fcntl.h>
 #include <errno.h>
 
+int commands_len = 1;
+
 /*Hidden functions.*/
 int HashFunction(char *var_name);
 
@@ -25,9 +27,9 @@ void Command_Prompt(void){
 }
 
 /*Splits the user's input to the correct assignment.*/
-void Read_Prompt(char *command, char **parameters, char **assignments, char **redirections, Variable *var_hash_table){
+void Read_Prompt(char command[][LINE_MAX], char ***parameters, char **assignments, char **redirections, Variable *var_hash_table){
 	/*Counters*/
-	int i = 0, j = 0, assignment_index = 0, params_index = 1, redirs_index = 0, in_index = 0;
+	int i = 0, j = 0, command_index = 0, assignment_index = 0, params_index = 1, redirs_index = 0, in_index = 0;
 	
 	char input[LINE_MAX];
 	char splitted_input[LINE_MAX][LINE_MAX] = {0};
@@ -43,10 +45,16 @@ void Read_Prompt(char *command, char **parameters, char **assignments, char **re
 	/*Splitting the input and saving it to splitted_input.*/
 	in_index = 0;
 	while(input[in_index] != '\0'){
-		
+
 		while(input[in_index] == ' ') in_index++;
 		
-		if(input[in_index] == '>'){
+		if(input[in_index] == ';'){
+			splitted_input[i][j++] = input[in_index++];
+			splitted_input[i][j] = '\0';
+			i++;
+			j = 0;
+		}
+		else if(input[in_index] == '>'){
 			if(input[in_index + 1] == '>'){
 				splitted_input[i][j++] = input[in_index++];
 				splitted_input[i][j++] = input[in_index++];
@@ -65,7 +73,7 @@ void Read_Prompt(char *command, char **parameters, char **assignments, char **re
 			j = 0;
 		}
 		else{
-			if(input[in_index + 1] != ' ' && input[in_index + 1] != '\0' && input[in_index + 1] != '>' && input[in_index + 1] != '<')
+			if(input[in_index + 1] != ' ' && input[in_index + 1] != '\0' && input[in_index + 1] != '>' && input[in_index + 1] != '<' && input[in_index + 1] != ';')
 				splitted_input[i][j++] = input[in_index++];
 			else{
 				splitted_input[i][j++] = input[in_index++];
@@ -75,7 +83,6 @@ void Read_Prompt(char *command, char **parameters, char **assignments, char **re
 			}
 		}
 	}
-	
 	
 	/*Using fsm in order to understand whether the user wants to execute a command or set a variable and
 	organizing everything to their arrays.*/
@@ -100,34 +107,42 @@ void Read_Prompt(char *command, char **parameters, char **assignments, char **re
 				curr_state = START;
 				break;
 			case CMD:
-				if(strcmp(command, "") == 0){
-					strcpy(command, splitted_input[i++]);
+				if(strcmp(command[command_index], "") == 0){
+					strcpy(command[command_index], splitted_input[i++]);
 				}
 				curr_state = PARAM;
 				break;
 			case PARAM:
-				if(parameters[0] == NULL){
-					parameters[0] = (char *)malloc(sizeof(char) * LINE_MAX);
-					if(parameters[0] == NULL){
+				if(parameters[command_index][0] == NULL){
+					parameters[command_index][0] = (char *)malloc(sizeof(char) * LINE_MAX);
+					if(parameters[command_index][0] == NULL){
 						perror("Malloc error\n");
 						exit(EXIT_FAILURE);
 					}	
-					strcpy(parameters[0], command);
+					strcpy(parameters[command_index][0], command[command_index]);
 				}
 				if(strchr(splitted_input[i], '<') != NULL || strchr(splitted_input[i], '>') != NULL || strstr(splitted_input[i], ">>") != NULL){
 					curr_state = REDIR;
 					break;
 				}
+				else if(strcmp(splitted_input[i], ";") == 0){
+					curr_state = START;
+					commands_len++;
+					command_index++;
+					i++;
+					break;
+				}
 				else{
-					parameters[params_index] = (char *)malloc(sizeof(char) * LINE_MAX);
-					if(parameters[params_index] == NULL){
+					parameters[command_index][params_index] = (char *)malloc(sizeof(char) * LINE_MAX);
+					if(parameters[command_index][params_index] == NULL){
 						perror("Malloc error\n");
 						exit(EXIT_FAILURE);
 					}
 					if(strchr(splitted_input[i], '$') != NULL)
-						strcpy(parameters[params_index++], Get_Variable(splitted_input[i++], var_hash_table));
-					else
-						strcpy(parameters[params_index++], splitted_input[i++]);
+						strcpy(parameters[command_index][params_index++], Get_Variable(splitted_input[i++], var_hash_table));
+					else{
+						strcpy(parameters[command_index][params_index++], splitted_input[i++]);
+					}
 				}
 				break;
 			case REDIR:
@@ -155,12 +170,14 @@ void Read_Prompt(char *command, char **parameters, char **assignments, char **re
 }
 
 /*Nullifying the arrays and reseting command string to empty.*/
-void Reset_Holders(char *command, char **parameters, char **assignments, char **redirections){
+void Reset_Holders(char command[][2048], char ***parameters, char **assignments, char **redirections){
 	int i;
 	
-	for(i = 0; parameters[i] != NULL; i++){
-		free(parameters[i]);
-		parameters[i] = NULL;
+	for(i = 0; i < ARG_MAX; i++){
+		for(int j = 0; parameters[i][j] != NULL; j++){
+			free(parameters[i][j]);
+			parameters[i][j] = NULL;
+		}
 	}
 	for(i = 0; assignments[i] != NULL; i++){
 		free(assignments[i]);
@@ -172,7 +189,12 @@ void Reset_Holders(char *command, char **parameters, char **assignments, char **
 		redirections[i] = NULL;
 	}
 	
-	strcpy(command, "");
+	for(i = 0; i < ARG_MAX; i++){
+		if(strcmp(command[i], ""))
+			strcpy(command[i], "");
+	}
+
+	commands_len = 1;
 }
 
 /*Returns wether or not a variable's name is correct.*/
