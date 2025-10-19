@@ -41,21 +41,30 @@ State FSM(const char c, State curr_state, char * val, tokens * tokens_arr){
     case START:
         if(isWhiteSpace(c)){
             curr_state = START;
-            emit(GetStrTok(val), tokens_arr, val);
+            if(strcmp(val, "")) emit(GetStrTok(val), tokens_arr, val);
             strcpy(val, "");
         }
         else if(isSeperatingChar(c))
             curr_state = SEP_CHAR;
-        else if(c == '\n' || c == '\0'){
+        else if(c == '\0' || c == EOF){
             curr_state = END;
             emit(GetStrTok(val), tokens_arr, val);
             strcpy(val, "");
+            emit(TOKEN_EOF, tokens_arr, "");
         }
         else
             curr_state = WORD;
         break;
     case SEP_CHAR:
-        append_char(val, c);
+        if(!strcmp(val, "")){
+            append_char(val, c);
+        }
+        else{
+            emit(GetStrTok(val), tokens_arr, val);
+            strcpy(val, "");
+            append_char(val, c);
+        }
+
         if(c == '>')
             curr_state = APPEND;
         else{
@@ -100,6 +109,8 @@ TokenType GetStrTok(const char * tok_val){
         return TOKEN_REDIR_APPEND;
     else if(!strcmp(tok_val, "<"))
         return TOKEN_REDIR_IN;
+    else if(!strcmp(tok_val, "\n"))
+        return TOKEN_EOL;
     else if(!strcmp(tok_val, "if"))
         return TOKEN_IF;
     else if(!strcmp(tok_val, "then"))
@@ -108,13 +119,13 @@ TokenType GetStrTok(const char * tok_val){
         return TOKEN_FI;
     else if(!strcmp(tok_val, "for"))
         return TOKEN_FOR;
+    else if(!strcmp(tok_val, "in"))
+        return TOKEN_IN;
     else if(!strcmp(tok_val, "do"))
         return TOKEN_DO;
     else if(!strcmp(tok_val, "done"))
         return TOKEN_DONE;
     
-    if(strchr(tok_val, '='))
-        return TOKEN_ASSIGN;
     else if(strchr(tok_val, '$'))
         return TOKEN_VAR;
     else
@@ -125,18 +136,16 @@ void emit(TokenType type, tokens * tokens_arr, const char * val){
     size_t index = 0;
     for(int i = 0; tokens_arr->tokens[i] != NULL && i < curr_tokens_arr_size; i++)
         index++;
-    
     if(index >= tokens_arr->size){
         curr_tokens_arr_size = curr_tokens_arr_size * 2;
         tokens_arr->tokens = (Token **)safe_realloc(tokens_arr->tokens, sizeof(Token *) * curr_tokens_arr_size);
         tokens_arr->size = curr_tokens_arr_size;
     }
-    if(strcmp(val, "") != 0){
-        tokens_arr->tokens[index] = (Token *)safe_alloc(sizeof(Token));
-        tokens_arr->tokens[index]->type = type;
-        tokens_arr->tokens[index]->value = (char *)safe_alloc(sizeof(char) * MAXVAL);
-        strcpy(tokens_arr->tokens[index]->value, val); 
-    }
+
+    tokens_arr->tokens[index] = (Token *)safe_alloc(sizeof(Token));
+    tokens_arr->tokens[index]->type = type;
+    tokens_arr->tokens[index]->value = (char *)safe_alloc(sizeof(char) * MAXVAL);
+    strcpy(tokens_arr->tokens[index]->value, val); 
 }
 
 char isWhiteSpace(char c){
@@ -144,5 +153,5 @@ char isWhiteSpace(char c){
 }
 
 char isSeperatingChar(char c){
-    return (c == ';' || c == '|' || c == '>' || c == '<');
+    return (c == ';' || c == '|' || c == '>' || c == '<' || c == '\n');
 }

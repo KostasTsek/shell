@@ -1,27 +1,46 @@
-# Compiler
+# Compiler and flags
 CC = gcc
 
-# Compiler flags
-CFLAGS = -Wall -g
+# Output directory
+OUT_DIR = out
 
-# Source files
-SRCS = hy345sh.c terminalHandle.c
+# Source directories
+SRC_DIRS = . executor AST tokenizer utils
 
-# Header files
-HEADERS = terminalHandle.h
+# Find all source files
+SRC = $(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.c))
+OBJ = $(patsubst %.c,$(OUT_DIR)/%.o,$(SRC))
 
-TARGET = hy345sh
+# Executable name
+TARGET = $(OUT_DIR)/shell
 
-# Default target
+# Default rule
 all: $(TARGET)
 
-$(TARGET): $(SRCS) $(HEADERS)
-	$(CC) $(CFLAGS) -o $(TARGET) $(SRCS)
+# Ensure output directory structure exists
+$(OUT_DIR):
+	mkdir -p $(OUT_DIR)/executor $(OUT_DIR)/AST $(OUT_DIR)/tokenizer $(OUT_DIR)/utils
 
-# Clean target to remove the executable and any object files
+# Generic rule to compile .c -> .o into out/
+$(OUT_DIR)/%.o: %.c | $(OUT_DIR)
+	@mkdir -p $(dir $@)
+	$(CC) -c $< -o $@
+
+# Link everything into final binary
+$(TARGET): $(OBJ)
+	$(CC) $(OBJ) -o $(TARGET)
+	@echo "Build complete → $(TARGET)"
+
+# Partial builds
+tokenizer: $(OUT_DIR)/tokenizer/tokenizer.o
+	@echo "Built tokenizer.o"
+
+ast: $(OUT_DIR)/AST/ast.o
+	@echo "Built ast.o"
+
+executor: $(OUT_DIR)/executor/executor.o
+	@echo "Built executor.o"
+
+# Clean up
 clean:
-	rm -f $(TARGET) *.o
-
-# Phony targets
-.PHONY: all clean
-
+	rm -rf $(OUT_DIR)

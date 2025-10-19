@@ -9,7 +9,6 @@ typedef enum {
     TOKEN_WORD,
     TOKEN_STRING,
     TOKEN_PIPE,
-    TOKEN_ASSIGN,
     TOKEN_VAR,
     TOKEN_REDIR_IN,
     TOKEN_REDIR_OUT,
@@ -19,8 +18,11 @@ typedef enum {
     TOKEN_THEN,
     TOKEN_FI,
     TOKEN_FOR,
+    TOKEN_IN,
     TOKEN_DO,
-    TOKEN_DONE
+    TOKEN_DONE,
+    TOKEN_EOL,
+    TOKEN_EOF
 }TokenType;
 
 typedef struct Token{
